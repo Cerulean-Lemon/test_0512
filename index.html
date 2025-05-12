@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Random Shapes Game</title>
+  <style>
+    body {
+      background-color: skyblue;
+      margin: 0;
+      overflow: hidden;
+      cursor: none;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .line {
+      position: absolute;
+      background-color: white;
+    }
+
+    .horizontal {
+      width: 100%;
+      height: 1px;
+      top: 0;
+      left: 0;
+    }
+
+    .vertical {
+      width: 1px;
+      height: 100%;
+      top: 0;
+      left: 0;
+    }
+
+    .target {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .target:before {
+      content: "";
+      position: absolute;
+      width: 46px;
+      height: 46px;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      margin: auto;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 50%;
+    }
+
+    .tag {
+      color: black;
+      position: absolute;
+      font-size: 20px;
+    }
+
+    .scoreboard {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      font-size: 24px;
+      font-weight: bold;
+      background: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      padding: 12px 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      color: #333;
+    }
+
+    .shape {
+      position: absolute;
+      pointer-events: none;
+    }
+
+    .circle {
+      border-radius: 50%;
+    }
+
+    .square {
+      border-radius: 0;
+    }
+
+    .rounded {
+      border-radius: 20%;
+    }
+
+    .triangle {
+      width: 0;
+      height: 0;
+      border-left: 20px solid transparent;
+      border-right: 20px solid transparent;
+      border-bottom: 35px solid red;
+      background: none !important;
+    }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+</head>
+<body>
+  <div class="line horizontal"></div>
+  <div class="line vertical"></div>
+  <div class="target"></div>
+  <span class="tag">Click to remove!</span>
+  <div class="scoreboard">Score: <span id="score">0</span></div>
+
+  <script>
+    const vertical = document.querySelector(".vertical");
+    const horizontal = document.querySelector(".horizontal");
+    const target = document.querySelector(".target");
+    const tag = document.querySelector(".tag");
+    const scoreDisplay = document.getElementById("score");
+
+    let mouseX = 0, mouseY = 0;
+    let score = 0;
+
+    document.addEventListener("mousemove", (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      vertical.style.transform = `translateX(${mouseX}px)`;
+      horizontal.style.transform = `translateY(${mouseY}px)`;
+      target.style.transform = `translate(${mouseX - 30}px, ${mouseY - 30}px)`;
+      tag.style.transform = `translate(${mouseX}px, ${mouseY}px)`;
+    });
+
+    function randomColor() {
+      const h = Math.floor(Math.random() * 360);
+      return `hsl(${h}, 80%, 70%)`;
+    }
+
+    function randomShapeClass() {
+      const shapes = ['circle', 'square', 'rounded'];
+      return shapes[Math.floor(Math.random() * shapes.length)];
+    }
+
+    function spawnShape() {
+      const shape = document.createElement('div');
+      const size = 20 + Math.random() * 60;
+      const startX = Math.random() * window.innerWidth;
+      const startY = Math.random() * window.innerHeight;
+      const endX = Math.random() * window.innerWidth;
+      const endY = Math.random() * window.innerHeight;
+      const duration = 2 + Math.random() * 3;
+      const color = randomColor();
+
+      shape.classList.add('shape');
+
+      // 삼각형 확률 낮게 설정
+      if (Math.random() < 0.1) {
+        shape.classList.add('triangle');
+      } else {
+        shape.classList.add(randomShapeClass());
+        shape.style.width = `${size}px`;
+        shape.style.height = `${size}px`;
+        shape.style.backgroundColor = color;
+      }
+
+      document.body.appendChild(shape);
+      gsap.set(shape, { x: startX, y: startY, opacity: 1, scale: 1 });
+
+      gsap.to(shape, {
+        x: endX,
+        y: endY,
+        duration: duration,
+        ease: "linear",
+        onComplete: () => {
+          shape.remove();
+          spawnShape(); // 계속 생성
+        }
+      });
+
+      return shape;
+    }
+
+    function isColliding(el) {
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = cx - mouseX;
+      const dy = cy - mouseY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      return dist < 40;
+    }
+
+    function updateScore(change) {
+      score += change;
+      scoreDisplay.textContent = score;
+    }
+
+    document.addEventListener("click", () => {
+      const shapes = document.querySelectorAll(".shape");
+      shapes.forEach(shape => {
+        if (isColliding(shape)) {
+          gsap.killTweensOf(shape);
+          gsap.to(shape, {
+            scale: 0,
+            opacity: 0,
+            duration: 0.2,
+            onComplete: () => {
+              updateScore(10); // 무조건 +10점
+              shape.remove();
+              spawnShape();
+            }
+          });
+        }
+      });
+    });
+
+    // 최초 다수 생성
+    for (let i = 0; i < 10; i++) {
+      spawnShape();
+    }
+  </script>
+</body>
+</html>
